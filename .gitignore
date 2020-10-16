@@ -1,0 +1,17 @@
+.eric6project/
+.ropeproject/
+.directory/
+*.pyc
+*.pyo
+*.orig
+*.bak
+*.rej
+*.log
+*~
+cur/
+tmp/
+__pycache__/
+*.DS_Store
+.ipynb_checkpoints/
+*.ipynb
+venv/
