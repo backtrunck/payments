@@ -41,19 +41,17 @@ def make_window():
     
 def convert_payment(option, scroll):
     
-    if option.get() == 'B. de Dados Arq. Macro':
+    if option.get() == 'B. de Dados Arq. Macro': #vai ler arquivo de pagamento por municipio, gerado pelo sistema macros
         
         payment_file_name = askopenfilename(  title='Selecione o arquivo', 
                                         filetypes=(('CVS files', '*.csv'), ('All files', '*')))
-        if len(payment_file_name) == 0:
-            
-            return
+       
         
         payment_file_tcm = ArquivoPagamentosMacroLeitor(payment_file_name, versao_formato = 2)
         
         dirname = os.path.dirname(payment_file_name)
         
-    else:
+    else:#vai ler um arquivo gerado pelo sistema
         
         payment_file_name = askopenfilename(  title='Selecione o arquivo', 
                                         filetypes=(('Xls files', '*.xls'), ('All files', '*')))

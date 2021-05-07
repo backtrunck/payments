@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE Project SYSTEM "Project-5.1.dtd">
 <!-- eric project file for project payments -->
-<!-- Saved: 2020-08-17, 18:10:11 -->
+<!-- Saved: 2020-10-17, 14:24:17 -->
 <!-- Copyright (C) 2020 ,  -->
 <Project version="5.1">
   <Language></Language>
@@ -14,7 +14,6 @@
   <Eol index="0"/>
   <Sources>
     <Source>__init__.py</Source>
-    <Source>arquivos_testes/teste.py</Source>
     <Source>get_tcm_codes.py</Source>
     <Source>interfaces_graficas/GridBox.py</Source>
     <Source>interfaces_graficas/ListBoxFeeder.py</Source>
@@ -28,25 +27,114 @@
     <Source>payment.py</Source>
     <Source>payment_gui.py</Source>
     <Source>payments_city.py</Source>
-    <Source>test/__init__.py</Source>
-    <Source>test/payment_test.py</Source>
-    <Source>test/test.py</Source>
-    <Source>test/teste_backup.py</Source>
-    <Source>test/teste_renomear_arquivo.py</Source>
-    <Source>test/teste_util.py</Source>
+    <Source>tcmpgempresa.py</Source>
     <Source>util/__init__.py</Source>
     <Source>util/terminal.py</Source>
     <Source>util/validadores.py</Source>
   </Sources>
-  <Others>
-    <Other>arquivos_testes/ote  ste_no   m.....e_empresa (cópia 1).txt</Other>
-    <Other>arquivos_testes/teste_nome_empresa.txt</Other>
-    <Other>test/teste_backup_2018_03_17..txt</Other>
-    <Other>test/teste_backup_2018_03_17.txt</Other>
-  </Others>
   <MainScript>payment_gui.py</MainScript>
   <Vcs>
-    <VcsType>None</VcsType>
+    <VcsType>Git</VcsType>
+    <VcsOptions>
+      <dict>
+        <key>
+          <string>add</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>checkout</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>commit</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>diff</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>export</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>global</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>history</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>log</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>remove</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>status</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>tag</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+        <key>
+          <string>update</string>
+        </key>
+        <value>
+          <list>
+            <string></string>
+          </list>
+        </value>
+      </dict>
+    </VcsOptions>
   </Vcs>
   <FiletypeAssociations>
     <FiletypeAssociation pattern="*.e4p" type="OTHERS"/>

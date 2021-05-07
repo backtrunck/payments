@@ -2,8 +2,10 @@ import datetime, csv, re,  os
 from datetime import date
 from util import    converte_monetario_float,\
                     formata_nome_empresa,\
-                    desformatar_moeda
+                    desformatar_moeda, \
+                    obter_nome_arquivo_e_extensao
 from xlrd import open_workbook, xldate_as_tuple
+import xlsxwriter
 from sqlalchemy import *
 
 
@@ -316,8 +318,8 @@ class ArquivoPagamentoTcmBaLeitor(ArquivoPagamentoLeitor):
         #Abre a primeira planilha
         self.sheet = self.arquivo.sheet_by_index(0)
         
-        #verifica se é um arquivo de pagamentos do TCM BA
-        self.verificarArquivo()
+        #verifica se é um arquivo de pagamentos de municipio do TCM BA
+        formato_arquivo = self.verificarArquivo()
         
         #pula para a oitava linha, onde começam as informações de pagamento
         self.linha_atual = 8
@@ -327,8 +329,10 @@ class ArquivoPagamentoTcmBaLeitor(ArquivoPagamentoLeitor):
         try:
             qt_pagamentos = self.sheet.cell_value(self.ultima_linha-1, 5)
             self.qt_pagamento = int(qt_pagamentos)
-#            self.valor_bruto_total = float(self.sheet.cell_value(self.ultima_linha-1, 13))
-            self.valor_bruto_total = float(self.sheet.cell_value(self.ultima_linha-1, 10))
+            if formato_arquivo == 1:
+                self.valor_bruto_total = float(self.sheet.cell_value(self.ultima_linha-1, 13))
+            else:
+                self.valor_bruto_total = float(self.sheet.cell_value(self.ultima_linha-1, 10))
         except ValueError:
             raise FormatoArqInvalidoExcp('Erro ao ler totalização - Verifique se o arquivo não foi manipulado')              
         
@@ -358,16 +362,30 @@ class ArquivoPagamentoTcmBaLeitor(ArquivoPagamentoLeitor):
         """Verifica se a planilha veio do site do Tribunal de Contas do Estado"""
         
         #Compara celulas especificas da planilha para confirmar que é um arquivo de pagamento do TCM BA
-        #formato do arquivo foi alterado. Tive que incluir um 'and' em cada comparacão para que pegue o formato
-        #antigo
-        if (self.sheet.cell_value(0, 3).strip() != 'Tribunal de Contas dos Municípios do Estado da Bahia' and 
-            self.sheet.cell_value(0, 2).strip() != 'Tribunal de Contas dos Municípios do Estado da Bahia') or \
-           (self.sheet.cell_value(2, 3).strip() != 'SIGA - Sistema Integrado de Gestão e Auditoria - Módulo de Análise' and 
-            self.sheet.cell_value(1, 3).strip() != 'SIGA - Sistema Integrado de Gestão e Auditoria - Módulo de Análise') or \
-           (self.sheet.cell_value(3, 0).strip() != 'CONSULTA PAGAMENTO EMPENHO' and 
-            self.sheet.cell_value(2, 0).strip() != 'CONSULTA PAGAMENTO EMPENHO'):
+        #formato do arquivo foi alterado. Tive que incluir duas comparacões uma para o formato 1 e outra para o formato 2
+        #um dos dois formatos é o antigo
+#        if (self.sheet.cell_value(0, 3).strip() != 'Tribunal de Contas dos Municípios do Estado da Bahia' and 
+#            self.sheet.cell_value(0, 2).strip() != 'Tribunal de Contas dos Municípios do Estado da Bahia') or \
+#           (self.sheet.cell_value(2, 3).strip() != 'SIGA - Sistema Integrado de Gestão e Auditoria - Módulo de Análise' and 
+#            self.sheet.cell_value(1, 3).strip() != 'SIGA - Sistema Integrado de Gestão e Auditoria - Módulo de Análise') or \
+#           (self.sheet.cell_value(3, 0).strip() != 'CONSULTA PAGAMENTO EMPENHO' and 
+#            self.sheet.cell_value(2, 0).strip() != 'CONSULTA PAGAMENTO EMPENHO'):
+#            raise FormatoArqInvalidoExcp('Arquivo Informado não foi gerado no SIGA-TCM')   
+        formato_valido = True    
+        #verifica se esta no formato 1
+        if self.sheet.cell_value(0, 3).strip().upper() != 'TRIBUNAL DE CONTAS DOS MUNICÍPIOS DO ESTADO DA BAHIA'  or \
+           self.sheet.cell_value(2, 3).strip().upper() != 'SIGA - SISTEMA INTEGRADO DE GESTÃO E AUDITORIA - MÓDULO DE ANÁLISE'  or \
+           self.sheet.cell_value(3, 0).strip().upper() != 'CONSULTA PAGAMENTO EMPENHO':
+            formato_valido = False
+#            raise FormatoArqInvalidoExcp('Arquivo Informado não foi gerado no SIGA-TCM')  
+        if formato_valido:
+            return 1 #retorna 1->tipo do formato do arquivo
+        
+        if self.sheet.cell_value(0, 2).strip().upper() != 'TRIBUNAL DE CONTAS DOS MUNICÍPIOS DO ESTADO DA BAHIA' or \
+            self.sheet.cell_value(1, 3).strip().upper() != 'SIGA - SISTEMA INTEGRADO DE GESTÃO E AUDITORIA - MÓDULO DE ANÁLISE' or \
+            self.sheet.cell_value(2, 0).strip().upper() != 'CONSULTA PAGAMENTO EMPENHO':
             raise FormatoArqInvalidoExcp('Arquivo Informado não foi gerado no SIGA-TCM')   
-            
+        return 2 #retorna 2->tipo do formato do arquivo
     def obter_proximo_pagamento(self):
         
         #Dicionario utilizado para criar PagamentoMacro
@@ -397,8 +415,8 @@ class ArquivoPagamentoTcmBaLeitor(ArquivoPagamentoLeitor):
         
          #cria o pagamento a partir do dicionario preenchido
         return PagamentoMacro(**pagamento_campos)
-        
-    def obter_dados_financeiros(self, pagamento_campos):
+    @staticmethod    
+    def obter_dados_financeiros(pagamento_campos):
             m = re.match(padrao_procura_1, pagamento_campos['dados_financeiros'])
             if m:
                 dados_financeiros = m.groups(0)
@@ -484,6 +502,130 @@ def inserir_registro():
             '042/2009', 
             'Serviços médico clínico geral, no atendimento na unidade PSF III, Bela Vista, sede deste município.')
     conn.execute(sql,values) 
+    
+def tabular_pagamentos_por_empresa_tcm_ba(nome_arquivo):
+    ''' função para ler um arquivo de pagamento gerado pelo siga_tcm, com todos os pagamentos para uma empresa.
+        Quando gerar o arquivo no SIGA, filtar somente pela cnpj. Pois se o arquivo for para uma empresa num 
+        determinado municipio o formato muda.
+        A função gera um arquivo de saida com o mesmo nome do arquivo de entrada colocando o sufixo '_saida' e
+        extensão xlsx, além de criar uma planilha extra, onde é informado os totais de pagamentos por município.
+    '''
+    
+    #Abre o arquivo xls
+    arquivo = open_workbook(nome_arquivo)
+        
+    #Abre a primeira planilha
+    sheet = arquivo.sheet_by_index(0)
+   
+    linha_atual = 7   #linha onde começa o primeiro pagamento, identificado com a primeira célula com valor "empenho"
+       
+    if     sheet.cell_value(0, 3).strip().upper() != 'TRIBUNAL DE CONTAS DOS MUNICÍPIOS DO ESTADO DA BAHIA'  or \
+           sheet.cell_value(1, 3).strip().upper() != 'SIGA - SISTEMA INTEGRADO DE GESTÃO E AUDITORIA - MÓDULO DE ANÁLISE'  or \
+          sheet.cell_value(2,0).strip().upper() != 'CONSULTA PAGAMENTO EMPENHO' or \
+          sheet.cell_value(5, 0)[0:8].upper() != "CPF/CNPJ" or \
+          sheet.cell_value(linha_atual, 0) .upper() != "EMPENHO":
+            return 1 #arquivo inválido
+    cabecalho = [   'municipio', 'unidade', 'exercicio_pagamento', 'empenho', 
+                            'dotacao', 'processo', 'credor', 'cpf_cnpj', 'data_empenho', 
+                            'data_pagamento', 'valor_liquido', 'valor_retencao', 'valor_bruto', 
+                            'conta_nome', 'banco', 'agencia', 'numero_conta', 'documento', 'rp', 
+                           'contrato', 'licitacao', 'fonte_recursos','elemento_despesa','historico']
+    
+    novo_nome_arquivo, extensao = obter_nome_arquivo_e_extensao(nome_arquivo)
+    nome_arquivo_saida = os.path.dirname(nome_arquivo)  + '/' + novo_nome_arquivo + '_saida.xlsx'
+    if extensao == 'csv':  #criação do arquivo de saída
+        novo_nome_arquivo = os.path.dirname(nome_arquivo) + '/' + novo_nome_arquivo + '_novo.csv'
+    else:
+        novo_nome_arquivo = os.path.dirname(nome_arquivo) + '/' + novo_nome_arquivo + '.csv'
+    
+    
+    workbook = xlsxwriter.Workbook(nome_arquivo_saida)  #abre arquivo para escrita
+    #print(nome_arquivo_saida)
+    worksheet = workbook.add_worksheet('pagamentos_empresa_tcmba') #cria uma planilha
+    sheet_total = workbook.add_worksheet('totais') #cria uma planilha
+    bold = workbook.add_format({'bold': True})  #formatação para negrito
+    money = workbook.add_format({'num_format': '$#,##0.00'})
+    linha_atual_xls = 0
+    linha_atual_total =0
+    #gera cabeçalho
+    for coluna,  valor in enumerate(cabecalho):
+        worksheet.write(linha_atual_xls, coluna,valor, bold)
+    linha_atual_xls = linha_atual_xls + 1
+    #gera cabeçalho da segunda planilha
+    sheet_total.write(linha_atual_total, 0, 'Município')
+    sheet_total.write(linha_atual_total, 1, 'Qt Pagamentos')
+    sheet_total.write(linha_atual_total, 2, 'Total')
+    linha_atual_total = linha_atual_total + 1
+        
+    total_bruto = 0.0
+    qt_pagamentos = 0
+    pagamento = {}
+    linha_atual = linha_atual +1
+    while sheet.cell_value(linha_atual, 0).upper() != "PAGAMENTO":           
+        if sheet.cell_value(linha_atual - 1, 0).upper() == "EMPENHO":
+            if sheet.cell_value(linha_atual - 2, 0)[0:23].upper() == "PREFEITURA MUNICIPAL DE":
+                pagamento['municipio'] =  formata_nome_empresa(sheet.cell_value(linha_atual - 2, 0)[23:])
+            else:
+                pagamento['municipio'] =  formata_nome_empresa(sheet.cell_value(linha_atual - 2, 0))
+                
+            pagamento['unidade'] = formata_nome_empresa(sheet.cell_value(linha_atual - 2, 0) )    
+        #linha 1
+        pagamento['empenho'] = sheet.cell_value(linha_atual, 0)
+        pagamento['dotacao'] = sheet.cell_value(linha_atual, 4)
+        dotacao = pagamento['dotacao'] .split('/')
+        pagamento ['fonte_recursos'] = dotacao[-1].strip()
+        pagamento['elemento_despesa'] = dotacao[-2].strip()
+        pagamento['processo'] = sheet.cell_value(linha_atual, 7)
+        pagamento['credor'] = formata_nome_empresa(sheet.cell_value(linha_atual ,  8))
+        pagamento['cpf_cnpj'] = sheet.cell_value(linha_atual, 11)        
+        pagamento['data_empenho'] = sheet.cell_value(linha_atual, 12)
+        pagamento['data_pagamento'] = sheet.cell_value(linha_atual , 13)
+        pagamento['exercicio_pagamento'] = datetime.datetime.strptime(pagamento['data_pagamento'],'%d/%m/%Y').year
+        pagamento['valor_liquido'] = converte_monetario_float(sheet.cell_value(linha_atual , 15))
+        pagamento['valor_retencao'] = converte_monetario_float(sheet.cell_value(linha_atual, 17))
+        pagamento['valor_bruto'] = converte_monetario_float(sheet.cell_value(linha_atual, 18))
+        total_bruto = total_bruto + pagamento['valor_bruto'] 
+        qt_pagamentos = qt_pagamentos + 1
+        #linha 2
+        pagamento['dados_financeiros'] = sheet.cell_value(linha_atual + 1, 0)
+        pagamento['RP_Contrato'] = sheet.cell_value(linha_atual + 1, 11)
+        if  sheet.cell_value(linha_atual + 1, 15).find(':') != -1:
+            pagamento['licitacao'] = sheet.cell_value(linha_atual + 1, 15).split(':')[1] #pega o nº da licitação após o ':'
+        else:
+            pagamento['licitacao'] = sheet.cell_value(linha_atual + 1, 15)
+        #linha 3
+        pagamento['historico'] = sheet.cell_value(linha_atual + 2, 0)[11:] #retira a palavra histórico do início
+        ArquivoPagamentoTcmBaLeitor.obter_dados_financeiros(pagamento)
+        del pagamento['dados_financeiros'] 
+        del pagamento['RP_Contrato']
+        linha_atual = linha_atual + 3  #proxima linha de pagamento
+        if sheet.cell_value(linha_atual, 0).upper() == "TOTAL" \
+           and sheet.cell_value(linha_atual +2 , 0).upper() == "PAGAMENTO":  #se tiver quase no final do arquivo, pula duas linhas
+            linha_atual = linha_atual + 2  #proxima linha de pagamento
+            sheet_total.write(linha_atual_total, 0, pagamento['municipio'])
+            sheet_total.write(linha_atual_total, 1, qt_pagamentos)
+            sheet_total.write(linha_atual_total, 2, total_bruto, money)
+            linha_atual_total = linha_atual_total + 1
+        elif sheet.cell_value(linha_atual, 0).upper() == "TOTAL" :  #se tiver no final do municipio pula três linhas
+            linha_atual = linha_atual + 3  #proxima linha de pagamento         
+            sheet_total.write(linha_atual_total, 0, pagamento['municipio'])
+            sheet_total.write(linha_atual_total, 1, qt_pagamentos)
+            sheet_total.write(linha_atual_total, 2, total_bruto, money)
+            qt_pagamentos = 0
+            total_bruto = 0.0
+            linha_atual_total = linha_atual_total + 1
+  
+        for coluna,  chave in enumerate(cabecalho):
+            worksheet.write(linha_atual_xls, coluna,pagamento[chave])
+        linha_atual_xls = linha_atual_xls + 1
+    workbook.close()    
+        
 if __name__ == "__main__":
-   ler_arquivo_pagamentos_macro('./arquivos_dados/TabulacaoDadosSaoFelixdoCoribe.xlsx')
+   #ler_arquivo_pagamentos_macro('./arquivos_dados/TabulacaoDadosSaoFelixdoCoribe.xlsx')
+   caminho_arquivo = "/home/lcreina/programacao/python/payments/arquivos_dados/"
+   #caminho_arquivo = "/home/lcreina/Documents/cgu/covid_2020/dispensas.2020.06/rio.real/"
+   nome_arquivo = "alagoinhas.pag.tcm.2020.top.vida.xls"
+   nome_arquivo = "pag.tcm.2019.md.hospitalar.xls"
+   tabular_pagamentos_por_empresa_tcm_ba(caminho_arquivo + nome_arquivo)
+
    #inserir_registro()

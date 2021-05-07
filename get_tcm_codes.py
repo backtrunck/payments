@@ -152,6 +152,7 @@ def parse_file_tcm(file_name, encoding='utf-8'):
     csv_file.close()
     file_tcm.close()
 def main():
+    #exemplo de arquivo de entrada:~/arquivos_dados/consulta.pagamentos.prefeitura.html
     print(len(sys.argv))
     if len(sys.argv) < 2:
         print('Execute "python3 extrair_codigos_tcm arquivo_com_codigos"')
