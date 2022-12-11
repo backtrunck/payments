@@ -415,6 +415,7 @@ class ArquivoPagamentoTcmBaLeitor(ArquivoPagamentoLeitor):
         
          #cria o pagamento a partir do dicionario preenchido
         return PagamentoMacro(**pagamento_campos)
+
     @staticmethod    
     def obter_dados_financeiros(pagamento_campos):
             m = re.match(padrao_procura_1, pagamento_campos['dados_financeiros'])
